@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digital Kaleido Garden</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="pattern"></canvas>
+
+    <aside class="panel">
+      <div class="panel__header">
+        <p class="eyebrow">Digital Kaleido Garden</p>
+        <h1>万華鏡に入れる動く模様</h1>
+        <p class="lead">
+          画面に万華鏡キットを当ててのぞくための、動く幾何学模様です。
+        </p>
+      </div>
+
+      <div class="controls">
+        <label>
+          プリセット
+          <select id="preset"></select>
+        </label>
+
+        <label>
+          色
+          <select id="palette"></select>
+        </label>
+
+        <label>
+          スピード
+          <input id="speed" type="range" min="0.2" max="2.4" step="0.1" />
+        </label>
+
+        <label>
+          量
+          <input id="density" type="range" min="6" max="28" step="1" />
+        </label>
+
+        <label>
+          大きさ
+          <input id="size" type="range" min="0.4" max="1.8" step="0.1" />
+        </label>
+
+        <label>
+          残像
+          <input id="trails" type="range" min="0.04" max="0.3" step="0.01" />
+        </label>
+      </div>
+
+      <div class="buttons">
+        <button id="randomize" type="button">ランダム</button>
+        <button id="toggle-panel" type="button">パネルを隠す</button>
+      </div>
+
+      <section class="tips">
+        <h2>改造の入口</h2>
+        <ol>
+          <li><code>script.js</code> の <code>settings.speed</code> を変える</li>
+          <li><code>palettes</code> の色コードを入れ替える</li>
+          <li><code>drawPetals()</code> をコピーして新しい模様を作る</li>
+        </ol>
+      </section>
+
+      <p class="hint">
+        キーボード: <kbd>f</kbd> で全画面 / <kbd>h</kbd> でパネル表示切り替え
+      </p>
+    </aside>
+
+    <script src="script.js"></script>
+  </body>
+</html>
