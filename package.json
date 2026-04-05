@@ -1,0 +1,12 @@
+{
+  "name": "dgm",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
