@@ -2,6 +2,8 @@
 
 PC画面に万華鏡キットを当ててのぞくための、動く幾何学模様を表示する小さなブラウザ作品です。
 
+https://vestige.github.io/dgm/
+
 ## 使い方
 
 1. `npm install`
