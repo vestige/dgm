@@ -1,6 +1,6 @@
 type PaletteName = "sunrise" | "ocean" | "neon" | "candy";
 type PatternName = "petals" | "orbit" | "lattice" | "confetti";
-type ViewMode = "full" | "scope" | "mirror";
+type ViewMode = "full" | "scope" | "mirror" | "mirrorSoft";
 
 interface Settings {
   preset: PatternName;
@@ -83,7 +83,7 @@ const settings: Settings = {
   density: 16,
   size: 1,
   trails: 0.12,
-  viewMode: "mirror",
+  viewMode: "mirrorSoft",
   lensSize: 0.72,
   distance: 0.14,
 };
@@ -303,7 +303,7 @@ function togglePanel(): void {
 function randomizeSettings(): void {
   const presetNames = Object.keys(presets) as PatternName[];
   const paletteNames = Object.keys(palettes) as PaletteName[];
-  const viewModes: ViewMode[] = ["mirror", "scope", "full"];
+  const viewModes: ViewMode[] = ["mirrorSoft", "mirror", "scope", "full"];
 
   settings.preset = presetNames[Math.floor(Math.random() * presetNames.length)];
   settings.palette = paletteNames[Math.floor(Math.random() * paletteNames.length)];
@@ -338,7 +338,7 @@ function render(now: number): void {
     speed: settings.speed,
   });
 
-  composeDisplay(width, height);
+  composeDisplay(width, height, seconds);
   requestAnimationFrame(render);
 }
 
@@ -382,7 +382,7 @@ function resetViewOffset(): void {
   updateOffsetReadout();
 }
 
-function composeDisplay(width: number, height: number): void {
+function composeDisplay(width: number, height: number, seconds: number): void {
   displayCtx.clearRect(0, 0, width, height);
 
   if (settings.viewMode === "full") {
@@ -395,7 +395,12 @@ function composeDisplay(width: number, height: number): void {
     return;
   }
 
-  composeMirrorDisplay(width, height);
+  if (settings.viewMode === "mirrorSoft") {
+    composeMirrorSoftDisplay(width, height, seconds);
+    return;
+  }
+
+  composeMirrorDisplay(width, height, seconds);
 }
 
 function composeScopeDisplay(width: number, height: number): void {
@@ -428,16 +433,18 @@ function composeScopeDisplay(width: number, height: number): void {
   displayCtx.restore();
 }
 
-function composeMirrorDisplay(width: number, height: number): void {
+function composeMirrorDisplay(width: number, height: number, seconds: number): void {
   const radius = Math.min(width, height) * settings.lensSize * 0.5;
   const distanceRatio = clamp(settings.distance / 0.8, 0, 1);
-  const blurAmount = Math.pow(distanceRatio, 1.6) * (12 + radius * 0.06);
-  const sourceScale = 1 + distanceRatio * 0.34;
+  const blurAmount = Math.pow(distanceRatio, 1.5) * (10 + radius * 0.05);
+  const sourceScaleBase = 0.82 + distanceRatio * 0.2;
   const cx = width / 2;
   const cy = height / 2;
   const sectorAngle = (Math.PI * 2) / MIRROR_SECTORS;
   const halfSectorAngle = sectorAngle / 2;
-  const baseAngle = -Math.PI / 2;
+  const baseAngle = -Math.PI / 2 + seconds * settings.speed * 0.05;
+  const ringCount = Math.max(6, Math.round(settings.density * 0.45));
+  const ringStep = radius / ringCount;
 
   displayCtx.save();
   displayCtx.fillStyle = "rgba(2, 6, 12, 0.98)";
@@ -456,36 +463,54 @@ function composeMirrorDisplay(width: number, height: number): void {
   displayCtx.fillStyle = well;
   displayCtx.fillRect(0, 0, width, height);
 
-  for (let sector = 0; sector < MIRROR_SECTORS; sector += 1) {
-    displayCtx.save();
-    displayCtx.translate(cx, cy);
-    displayCtx.rotate(baseAngle + sector * sectorAngle);
-    clipSector(displayCtx, radius, halfSectorAngle);
+  for (let ring = 0; ring < ringCount; ring += 1) {
+    const ringRatio = ring / Math.max(1, ringCount - 1);
+    const innerRadius = ring * ringStep;
+    const outerRadius = Math.min(radius, innerRadius + ringStep * 1.22);
+    const ringBlur = blurAmount * (0.18 + ringRatio * 0.92);
+    const ringScale = sourceScaleBase + ringRatio * 0.72;
+    const ringTwist = baseAngle + ringRatio * 0.5 + Math.sin(seconds * 0.4 + ring * 0.7) * 0.08;
+    const radialShift =
+      (seconds * settings.speed * (26 + ring * 4) + ring * ringStep * 1.8) % (radius * 0.95) - radius * 0.48;
+    const tangentialShift = Math.sin(seconds * 0.9 + ring * 0.8) * radius * 0.08;
+    const offsetScale = 0.45 + ringRatio * 1.05;
 
-    if (sector % 2 === 1) {
-      displayCtx.scale(-1, 1);
+    for (let sector = 0; sector < MIRROR_SECTORS; sector += 1) {
+      displayCtx.save();
+      displayCtx.translate(cx, cy);
+      displayCtx.rotate(ringTwist + sector * sectorAngle);
+      clipRingSector(displayCtx, innerRadius, outerRadius, halfSectorAngle);
+
+      if (sector % 2 === 1) {
+        displayCtx.scale(-1, 1);
+      }
+
+      const breathing = 1 + Math.sin(seconds * 0.7 + ring * 0.9 + sector * 0.18) * 0.045;
+      displayCtx.translate(tangentialShift + ringRatio * radius * 0.05, 0);
+      displayCtx.scale(ringScale * breathing, ringScale * breathing);
+      displayCtx.rotate(Math.sin(seconds * 0.3 + ring * 0.35) * 0.05);
+      displayCtx.globalAlpha = 0.95 - ringRatio * 0.18;
+
+      if (ringBlur > 0.05) {
+        displayCtx.filter =
+          `blur(${ringBlur}px) saturate(${1.08 - ringRatio * 0.16}) brightness(${1.04 - distanceRatio * 0.1})`;
+      }
+
+      displayCtx.drawImage(
+        sceneCanvas,
+        -width / 2 - viewOffset.currentX * offsetScale,
+        -height / 2 - viewOffset.currentY * offsetScale - radialShift,
+        width,
+        height,
+      );
+      displayCtx.restore();
     }
-
-    displayCtx.scale(sourceScale, sourceScale);
-
-    if (blurAmount > 0.05) {
-      displayCtx.filter =
-        `blur(${blurAmount}px) saturate(${1.02 - distanceRatio * 0.14}) brightness(${1 - distanceRatio * 0.08})`;
-    }
-
-    displayCtx.drawImage(
-      sceneCanvas,
-      -width / 2 - viewOffset.currentX,
-      -height / 2 - viewOffset.currentY,
-      width,
-      height,
-    );
-    displayCtx.restore();
   }
 
   displayCtx.restore();
 
   paintOuterMatte(width, height, radius, cx, cy, 0.86 + distanceRatio * 0.1);
+  paintMirrorRings(radius, cx, cy, ringCount);
   paintMirrorSeams(radius, cx, cy, baseAngle, sectorAngle);
   paintCircularRim(radius, cx, cy, 5 + distanceRatio * 10, 0.42 + distanceRatio * 0.2);
 
@@ -496,6 +521,128 @@ function composeMirrorDisplay(width: number, height: number): void {
   displayCtx.lineWidth = Math.max(4, radius * 0.03);
   displayCtx.stroke();
   displayCtx.restore();
+}
+
+function composeMirrorSoftDisplay(width: number, height: number, seconds: number): void {
+  const radius = Math.min(width, height) * settings.lensSize * 0.5;
+  const distanceRatio = clamp(settings.distance / 0.8, 0, 1);
+  const cx = width / 2;
+  const cy = height / 2;
+  const sectorAngle = (Math.PI * 2) / MIRROR_SECTORS;
+  const halfSectorAngle = sectorAngle / 2;
+  const baseAngle = -Math.PI / 2 + Math.sin(seconds * 0.18) * 0.06;
+  const layerCount = 5;
+  const driftRadius = radius * (0.05 + settings.size * 0.014);
+  const blurBase = 0.8 + Math.pow(distanceRatio, 1.65) * (7 + radius * 0.032);
+  const scaleBase = 1.01 + distanceRatio * 0.08;
+
+  displayCtx.save();
+  displayCtx.fillStyle = "rgba(2, 6, 12, 0.98)";
+  displayCtx.fillRect(0, 0, width, height);
+  displayCtx.restore();
+
+  displayCtx.save();
+  displayCtx.beginPath();
+  displayCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+  displayCtx.clip();
+
+  const well = displayCtx.createRadialGradient(cx, cy, radius * 0.08, cx, cy, radius * 1.08);
+  well.addColorStop(0, "rgba(255, 255, 255, 0.07)");
+  well.addColorStop(0.42, "rgba(70, 110, 160, 0.08)");
+  well.addColorStop(1, "rgba(0, 0, 0, 0.32)");
+  displayCtx.fillStyle = well;
+  displayCtx.fillRect(0, 0, width, height);
+
+  for (let layer = 0; layer < layerCount; layer += 1) {
+    const layerRatio = layer / Math.max(1, layerCount - 1);
+    const driftX =
+      (Math.sin(seconds * (0.24 + layer * 0.04) + layer * 1.1) +
+        Math.sin(seconds * (0.52 + layer * 0.02) + 0.9)) *
+      driftRadius *
+      (0.2 + layerRatio * 0.3);
+    const driftY =
+      (Math.cos(seconds * (0.2 + layer * 0.05) + layer * 1.4) +
+        Math.sin(seconds * (0.41 + layer * 0.03) + 1.7)) *
+      driftRadius *
+      (0.18 + layerRatio * 0.26);
+    const layerRotation =
+      Math.sin(seconds * (0.13 + layer * 0.02) + layer * 0.7) * 0.04 +
+      Math.cos(seconds * 0.16 + layer) * 0.018;
+    const layerScale = scaleBase + layerRatio * 0.1 + Math.sin(seconds * 0.38 + layer * 0.6) * 0.015;
+    const layerBlur = blurBase * (0.55 + layerRatio * 0.55);
+    const layerAlpha = 0.34 - layerRatio * 0.05;
+    const layerBreath = 1 + Math.sin(seconds * 0.34 + layer * 0.85) * 0.03;
+    const offsetScale = 0.7 + layerRatio * 0.4;
+
+    displayCtx.globalCompositeOperation = layer === 0 ? "source-over" : "screen";
+
+    for (let sector = 0; sector < MIRROR_SECTORS; sector += 1) {
+      displayCtx.save();
+      displayCtx.translate(cx, cy);
+      displayCtx.rotate(baseAngle + sector * sectorAngle + layerRotation);
+      clipSector(displayCtx, radius, halfSectorAngle);
+
+      if (sector % 2 === 1) {
+        displayCtx.scale(-1, 1);
+      }
+
+      displayCtx.scale(layerScale * layerBreath, layerScale * layerBreath);
+      displayCtx.globalAlpha = layerAlpha;
+
+      if (layerBlur > 0.05) {
+        displayCtx.filter =
+          `blur(${layerBlur}px) saturate(${1.06 - distanceRatio * 0.08}) brightness(${1.02 - layerRatio * 0.08})`;
+      }
+
+      displayCtx.drawImage(
+        sceneCanvas,
+        -width / 2 - (viewOffset.currentX + driftX) * offsetScale,
+        -height / 2 - (viewOffset.currentY + driftY) * offsetScale,
+        width,
+        height,
+      );
+      displayCtx.restore();
+    }
+  }
+
+  const haze = displayCtx.createRadialGradient(cx, cy, radius * 0.12, cx, cy, radius * 0.96);
+  haze.addColorStop(0, "rgba(255, 255, 255, 0.09)");
+  haze.addColorStop(0.35, "rgba(255, 255, 255, 0.03)");
+  haze.addColorStop(1, "rgba(255, 255, 255, 0)");
+  displayCtx.fillStyle = haze;
+  displayCtx.fillRect(0, 0, width, height);
+  displayCtx.restore();
+
+  paintOuterMatte(width, height, radius, cx, cy, 0.86 + distanceRatio * 0.08);
+  paintMirrorSeams(radius, cx, cy, baseAngle, sectorAngle, 0.45, 0.8);
+  paintCircularRim(radius, cx, cy, 4 + distanceRatio * 8, 0.34 + distanceRatio * 0.16);
+
+  displayCtx.save();
+  displayCtx.beginPath();
+  displayCtx.arc(cx, cy, radius * 0.88, -2.45, -1.4);
+  displayCtx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+  displayCtx.lineWidth = Math.max(3, radius * 0.022);
+  displayCtx.stroke();
+  displayCtx.restore();
+}
+
+function clipRingSector(
+  ctx: CanvasRenderingContext2D,
+  innerRadius: number,
+  outerRadius: number,
+  halfSectorAngle: number,
+): void {
+  if (innerRadius < 0.5) {
+    clipSector(ctx, outerRadius, halfSectorAngle);
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(Math.cos(-halfSectorAngle) * innerRadius, Math.sin(-halfSectorAngle) * innerRadius);
+  ctx.arc(0, 0, outerRadius, -halfSectorAngle, halfSectorAngle);
+  ctx.arc(0, 0, innerRadius, halfSectorAngle, -halfSectorAngle, true);
+  ctx.closePath();
+  ctx.clip();
 }
 
 function clipSector(ctx: CanvasRenderingContext2D, radius: number, halfSectorAngle: number): void {
@@ -536,13 +683,15 @@ function paintMirrorSeams(
   cy: number,
   baseAngle: number,
   sectorAngle: number,
+  opacity = 1,
+  widthScale = 1,
 ): void {
   displayCtx.save();
   displayCtx.translate(cx, cy);
-  displayCtx.strokeStyle = `rgba(255, 255, 255, ${0.12 + settings.distance * 0.08})`;
-  displayCtx.lineWidth = 1 + settings.distance * 2;
-  displayCtx.shadowBlur = 12;
-  displayCtx.shadowColor = "rgba(255, 255, 255, 0.18)";
+  displayCtx.strokeStyle = `rgba(255, 255, 255, ${(0.12 + settings.distance * 0.08) * opacity})`;
+  displayCtx.lineWidth = (1 + settings.distance * 2) * widthScale;
+  displayCtx.shadowBlur = 12 * opacity;
+  displayCtx.shadowColor = `rgba(255, 255, 255, ${0.18 * opacity})`;
 
   for (let sector = 0; sector < MIRROR_SECTORS; sector += 1) {
     const angle = baseAngle + sector * sectorAngle;
@@ -553,6 +702,22 @@ function paintMirrorSeams(
     displayCtx.lineTo(radius, 0);
     displayCtx.stroke();
     displayCtx.restore();
+  }
+
+  displayCtx.restore();
+}
+
+function paintMirrorRings(radius: number, cx: number, cy: number, ringCount: number): void {
+  displayCtx.save();
+  displayCtx.translate(cx, cy);
+  displayCtx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+  displayCtx.lineWidth = 1.2;
+
+  for (let ring = 1; ring < ringCount; ring += 2) {
+    const ringRadius = (radius / ringCount) * ring;
+    displayCtx.beginPath();
+    displayCtx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+    displayCtx.stroke();
   }
 
   displayCtx.restore();
