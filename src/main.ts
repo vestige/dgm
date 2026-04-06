@@ -287,7 +287,7 @@ function handleKeydown(event: KeyboardEvent): void {
     return;
   }
 
-  if (key.toLowerCase() === "r" || key.toLowerCase() === "c") {
+  if (key.toLowerCase() === "c") {
     resetViewOffset();
     return;
   }
