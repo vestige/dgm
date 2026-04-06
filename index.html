@@ -52,6 +52,7 @@
         <label>
           見え方
           <select id="view-mode">
+            <option value="mirror">鏡面シミュレーション</option>
             <option value="scope">丸いのぞき窓</option>
             <option value="full">全面表示</option>
           </select>
@@ -83,7 +84,12 @@
       </section>
 
       <p class="hint">
-        キーボード: <kbd>f</kbd> で全画面 / <kbd>h</kbd> でパネル表示切り替え
+        視野オフセット: <span id="offset-readout">x 0, y 0</span>
+      </p>
+
+      <p class="hint">
+        キーボード: <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> で視野移動 /
+        <kbd>c</kbd> で中央に戻す / <kbd>f</kbd> で全画面 / <kbd>h</kbd> でパネル表示切り替え
       </p>
     </aside>
 

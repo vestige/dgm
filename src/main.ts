@@ -1,6 +1,6 @@
 type PaletteName = "sunrise" | "ocean" | "neon" | "candy";
 type PatternName = "petals" | "orbit" | "lattice" | "confetti";
-type ViewMode = "full" | "scope";
+type ViewMode = "full" | "scope" | "mirror";
 
 interface Settings {
   preset: PatternName;
@@ -34,6 +34,18 @@ interface Preset {
   trails: number;
   draw: (state: PatternDrawState) => void;
 }
+
+interface ViewOffsetState {
+  currentX: number;
+  currentY: number;
+  targetX: number;
+  targetY: number;
+}
+
+const MIRROR_SECTORS = 12;
+const VIEW_MOVE_SPEED = 0.58;
+const VIEW_EASING = 10;
+const VIEW_RANGE = 0.34;
 
 function getById<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -71,10 +83,19 @@ const settings: Settings = {
   density: 16,
   size: 1,
   trails: 0.12,
-  viewMode: "scope",
-  lensSize: 0.68,
-  distance: 0.12,
+  viewMode: "mirror",
+  lensSize: 0.72,
+  distance: 0.14,
 };
+
+const viewOffset: ViewOffsetState = {
+  currentX: 0,
+  currentY: 0,
+  targetX: 0,
+  targetY: 0,
+};
+
+const pressedKeys = new Set<string>();
 
 const palettes: Record<PaletteName, string[]> = {
   sunrise: ["#ff6b6b", "#ffd166", "#f7fff7", "#4ecdc4"],
@@ -137,15 +158,20 @@ const controls = {
 const panel = getPanelElement();
 const randomizeButton = getById<HTMLButtonElement>("randomize");
 const togglePanelButton = getById<HTMLButtonElement>("toggle-panel");
+const offsetReadout = getById<HTMLSpanElement>("offset-readout");
 
 let startTime = 0;
+let lastFrameTime = 0;
 
 setupOptions();
 applyPreset(settings.preset);
 resizeCanvases();
+updateOffsetReadout();
 
 window.addEventListener("resize", resizeCanvases);
 window.addEventListener("keydown", handleKeydown);
+window.addEventListener("keyup", handleKeyup);
+window.addEventListener("blur", clearMovementKeys);
 randomizeButton.addEventListener("click", randomizeSettings);
 togglePanelButton.addEventListener("click", togglePanel);
 
@@ -178,6 +204,7 @@ controls.distance.addEventListener("input", () => {
 });
 
 startTime = performance.now();
+lastFrameTime = startTime;
 requestAnimationFrame(render);
 
 function setupOptions(): void {
@@ -230,17 +257,40 @@ function resizeCanvases(): void {
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key.toLowerCase() === "h") {
+  const key = event.key;
+
+  if (isArrowKey(key)) {
+    pressedKeys.add(key);
+    event.preventDefault();
+    return;
+  }
+
+  if (key.toLowerCase() === "c") {
+    resetViewOffset();
+    return;
+  }
+
+  if (key.toLowerCase() === "h") {
     togglePanel();
   }
 
-  if (event.key.toLowerCase() === "f") {
+  if (key.toLowerCase() === "f") {
     if (!document.fullscreenElement) {
       void document.documentElement.requestFullscreen().catch(() => {});
     } else {
       void document.exitFullscreen().catch(() => {});
     }
   }
+}
+
+function handleKeyup(event: KeyboardEvent): void {
+  if (isArrowKey(event.key)) {
+    pressedKeys.delete(event.key);
+  }
+}
+
+function clearMovementKeys(): void {
+  pressedKeys.clear();
 }
 
 function togglePanel(): void {
@@ -253,6 +303,7 @@ function togglePanel(): void {
 function randomizeSettings(): void {
   const presetNames = Object.keys(presets) as PatternName[];
   const paletteNames = Object.keys(palettes) as PaletteName[];
+  const viewModes: ViewMode[] = ["mirror", "scope", "full"];
 
   settings.preset = presetNames[Math.floor(Math.random() * presetNames.length)];
   settings.palette = paletteNames[Math.floor(Math.random() * paletteNames.length)];
@@ -260,7 +311,7 @@ function randomizeSettings(): void {
   settings.density = Math.floor(randomBetween(8, 24));
   settings.size = randomBetween(0.6, 1.6, 1);
   settings.trails = randomBetween(0.05, 0.2, 2);
-  settings.viewMode = Math.random() > 0.3 ? "scope" : "full";
+  settings.viewMode = viewModes[Math.floor(Math.random() * viewModes.length)];
   settings.lensSize = randomBetween(0.52, 0.86, 2);
   settings.distance = randomBetween(0.02, 0.48, 2);
   syncControls();
@@ -268,10 +319,13 @@ function randomizeSettings(): void {
 
 function render(now: number): void {
   const seconds = (now - startTime) / 1000;
+  const deltaSeconds = (now - lastFrameTime) / 1000;
   const width = window.innerWidth;
   const height = window.innerHeight;
   const colors = palettes[settings.palette];
 
+  lastFrameTime = now;
+  updateViewOffset(deltaSeconds, width, height);
   paintBackdrop(sceneCtx, width, height, settings.trails, colors);
   presets[settings.preset].draw({
     ctx: sceneCtx,
@@ -288,18 +342,69 @@ function render(now: number): void {
   requestAnimationFrame(render);
 }
 
+function updateViewOffset(deltaSeconds: number, width: number, height: number): void {
+  const moveAmount = Math.min(width, height) * VIEW_MOVE_SPEED * deltaSeconds;
+  const maxX = width * VIEW_RANGE;
+  const maxY = height * VIEW_RANGE;
+
+  if (pressedKeys.has("ArrowLeft")) {
+    viewOffset.targetX -= moveAmount;
+  }
+  if (pressedKeys.has("ArrowRight")) {
+    viewOffset.targetX += moveAmount;
+  }
+  if (pressedKeys.has("ArrowUp")) {
+    viewOffset.targetY -= moveAmount;
+  }
+  if (pressedKeys.has("ArrowDown")) {
+    viewOffset.targetY += moveAmount;
+  }
+
+  viewOffset.targetX = clamp(viewOffset.targetX, -maxX, maxX);
+  viewOffset.targetY = clamp(viewOffset.targetY, -maxY, maxY);
+
+  const easing = Math.min(1, deltaSeconds * VIEW_EASING);
+  viewOffset.currentX += (viewOffset.targetX - viewOffset.currentX) * easing;
+  viewOffset.currentY += (viewOffset.targetY - viewOffset.currentY) * easing;
+
+  updateOffsetReadout();
+}
+
+function updateOffsetReadout(): void {
+  offsetReadout.textContent = `x ${Math.round(viewOffset.targetX)}, y ${Math.round(viewOffset.targetY)}`;
+}
+
+function resetViewOffset(): void {
+  viewOffset.currentX = 0;
+  viewOffset.currentY = 0;
+  viewOffset.targetX = 0;
+  viewOffset.targetY = 0;
+  updateOffsetReadout();
+}
+
 function composeDisplay(width: number, height: number): void {
   displayCtx.clearRect(0, 0, width, height);
-  displayCtx.drawImage(sceneCanvas, 0, 0, width, height);
 
   if (settings.viewMode === "full") {
+    displayCtx.drawImage(sceneCanvas, 0, 0, width, height);
     return;
   }
 
+  if (settings.viewMode === "scope") {
+    composeScopeDisplay(width, height);
+    return;
+  }
+
+  composeMirrorDisplay(width, height);
+}
+
+function composeScopeDisplay(width: number, height: number): void {
   const radius = Math.min(width, height) * settings.lensSize * 0.5;
   const blurAmount = settings.distance * 18;
   const cx = width / 2;
   const cy = height / 2;
+
+  displayCtx.drawImage(sceneCanvas, 0, 0, width, height);
 
   if (blurAmount > 0.05) {
     displayCtx.save();
@@ -311,36 +416,160 @@ function composeDisplay(width: number, height: number): void {
     displayCtx.restore();
   }
 
-  const fade = displayCtx.createRadialGradient(cx, cy, radius * 0.82, cx, cy, radius * 1.16);
-  fade.addColorStop(0, "rgba(0, 0, 0, 0)");
-  fade.addColorStop(0.72, "rgba(0, 0, 0, 0)");
-  fade.addColorStop(1, `rgba(2, 6, 12, ${0.82 + settings.distance * 0.12})`);
-  displayCtx.fillStyle = fade;
-  displayCtx.fillRect(0, 0, width, height);
-
-  displayCtx.save();
-  displayCtx.fillStyle = `rgba(2, 6, 12, ${0.8 + settings.distance * 0.1})`;
-  displayCtx.beginPath();
-  displayCtx.rect(0, 0, width, height);
-  displayCtx.arc(cx, cy, radius, 0, Math.PI * 2, true);
-  displayCtx.fill("evenodd");
-  displayCtx.restore();
-
-  displayCtx.save();
-  displayCtx.beginPath();
-  displayCtx.arc(cx, cy, radius, 0, Math.PI * 2);
-  displayCtx.strokeStyle = `rgba(255, 255, 255, ${0.34 + settings.distance * 0.14})`;
-  displayCtx.lineWidth = 3 + settings.distance * 10;
-  displayCtx.shadowBlur = 24;
-  displayCtx.shadowColor = "rgba(255, 214, 122, 0.5)";
-  displayCtx.stroke();
-  displayCtx.restore();
+  paintOuterMatte(width, height, radius, cx, cy, 0.8 + settings.distance * 0.1);
+  paintCircularRim(radius, cx, cy, 3 + settings.distance * 10, 0.34 + settings.distance * 0.14);
 
   displayCtx.save();
   displayCtx.beginPath();
   displayCtx.arc(cx, cy, radius * 0.08, 0, Math.PI * 2);
   displayCtx.fillStyle = "rgba(255, 255, 255, 0.08)";
   displayCtx.fill();
+  displayCtx.restore();
+}
+
+function composeMirrorDisplay(width: number, height: number): void {
+  const radius = Math.min(width, height) * settings.lensSize * 0.5;
+  const blurAmount = settings.distance * 9;
+  const sourceScale = 1 + settings.distance * 0.24;
+  const cx = width / 2;
+  const cy = height / 2;
+  const sectorAngle = (Math.PI * 2) / MIRROR_SECTORS;
+  const halfSectorAngle = sectorAngle / 2;
+  const baseAngle = -Math.PI / 2;
+
+  displayCtx.save();
+  displayCtx.fillStyle = "rgba(2, 6, 12, 0.98)";
+  displayCtx.fillRect(0, 0, width, height);
+  displayCtx.restore();
+
+  displayCtx.save();
+  displayCtx.beginPath();
+  displayCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+  displayCtx.clip();
+
+  const well = displayCtx.createRadialGradient(cx, cy, radius * 0.18, cx, cy, radius * 1.05);
+  well.addColorStop(0, "rgba(255, 255, 255, 0.05)");
+  well.addColorStop(0.65, "rgba(20, 36, 56, 0.14)");
+  well.addColorStop(1, "rgba(0, 0, 0, 0.3)");
+  displayCtx.fillStyle = well;
+  displayCtx.fillRect(0, 0, width, height);
+
+  for (let sector = 0; sector < MIRROR_SECTORS; sector += 1) {
+    displayCtx.save();
+    displayCtx.translate(cx, cy);
+    displayCtx.rotate(baseAngle + sector * sectorAngle);
+    clipSector(displayCtx, radius, halfSectorAngle);
+
+    if (sector % 2 === 1) {
+      displayCtx.scale(-1, 1);
+    }
+
+    displayCtx.scale(sourceScale, sourceScale);
+
+    if (blurAmount > 0.05) {
+      displayCtx.filter = `blur(${blurAmount}px) saturate(${1.02 + settings.distance * 0.24})`;
+    }
+
+    displayCtx.drawImage(
+      sceneCanvas,
+      -width / 2 - viewOffset.currentX,
+      -height / 2 - viewOffset.currentY,
+      width,
+      height,
+    );
+    displayCtx.restore();
+  }
+
+  displayCtx.restore();
+
+  paintOuterMatte(width, height, radius, cx, cy, 0.86 + settings.distance * 0.08);
+  paintMirrorSeams(radius, cx, cy, baseAngle, sectorAngle);
+  paintCircularRim(radius, cx, cy, 5 + settings.distance * 10, 0.42 + settings.distance * 0.18);
+
+  displayCtx.save();
+  displayCtx.beginPath();
+  displayCtx.arc(cx, cy, radius * 0.93, -2.35, -1.2);
+  displayCtx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+  displayCtx.lineWidth = Math.max(4, radius * 0.03);
+  displayCtx.stroke();
+  displayCtx.restore();
+}
+
+function clipSector(ctx: CanvasRenderingContext2D, radius: number, halfSectorAngle: number): void {
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, radius, -halfSectorAngle, halfSectorAngle);
+  ctx.closePath();
+  ctx.clip();
+}
+
+function paintOuterMatte(
+  width: number,
+  height: number,
+  radius: number,
+  cx: number,
+  cy: number,
+  alpha: number,
+): void {
+  const fade = displayCtx.createRadialGradient(cx, cy, radius * 0.82, cx, cy, radius * 1.16);
+  fade.addColorStop(0, "rgba(0, 0, 0, 0)");
+  fade.addColorStop(0.72, "rgba(0, 0, 0, 0)");
+  fade.addColorStop(1, `rgba(2, 6, 12, ${alpha})`);
+  displayCtx.fillStyle = fade;
+  displayCtx.fillRect(0, 0, width, height);
+
+  displayCtx.save();
+  displayCtx.fillStyle = `rgba(2, 6, 12, ${alpha})`;
+  displayCtx.beginPath();
+  displayCtx.rect(0, 0, width, height);
+  displayCtx.arc(cx, cy, radius, 0, Math.PI * 2, true);
+  displayCtx.fill("evenodd");
+  displayCtx.restore();
+}
+
+function paintMirrorSeams(
+  radius: number,
+  cx: number,
+  cy: number,
+  baseAngle: number,
+  sectorAngle: number,
+): void {
+  displayCtx.save();
+  displayCtx.translate(cx, cy);
+  displayCtx.strokeStyle = `rgba(255, 255, 255, ${0.12 + settings.distance * 0.08})`;
+  displayCtx.lineWidth = 1 + settings.distance * 2;
+  displayCtx.shadowBlur = 12;
+  displayCtx.shadowColor = "rgba(255, 255, 255, 0.18)";
+
+  for (let sector = 0; sector < MIRROR_SECTORS; sector += 1) {
+    const angle = baseAngle + sector * sectorAngle;
+    displayCtx.save();
+    displayCtx.rotate(angle);
+    displayCtx.beginPath();
+    displayCtx.moveTo(0, 0);
+    displayCtx.lineTo(radius, 0);
+    displayCtx.stroke();
+    displayCtx.restore();
+  }
+
+  displayCtx.restore();
+}
+
+function paintCircularRim(radius: number, cx: number, cy: number, lineWidth: number, alpha: number): void {
+  const rim = displayCtx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
+  rim.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+  rim.addColorStop(0.35, "rgba(184, 218, 255, 0.12)");
+  rim.addColorStop(0.68, "rgba(255, 214, 122, 0.22)");
+  rim.addColorStop(1, `rgba(255, 255, 255, ${alpha * 0.82})`);
+
+  displayCtx.save();
+  displayCtx.beginPath();
+  displayCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+  displayCtx.strokeStyle = rim;
+  displayCtx.lineWidth = lineWidth;
+  displayCtx.shadowBlur = 24;
+  displayCtx.shadowColor = "rgba(255, 214, 122, 0.45)";
+  displayCtx.stroke();
   displayCtx.restore();
 }
 
@@ -497,6 +726,14 @@ function drawConfetti({ ctx, seconds, width, height, colors, density, size, spee
   }
 
   ctx.restore();
+}
+
+function isArrowKey(key: string): boolean {
+  return key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp" || key === "ArrowDown";
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function randomBetween(min: number, max: number, digits = 0): number {
