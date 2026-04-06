@@ -400,7 +400,8 @@ function composeDisplay(width: number, height: number): void {
 
 function composeScopeDisplay(width: number, height: number): void {
   const radius = Math.min(width, height) * settings.lensSize * 0.5;
-  const blurAmount = settings.distance * 18;
+  const distanceRatio = clamp(settings.distance / 0.8, 0, 1);
+  const blurAmount = Math.pow(distanceRatio, 1.7) * (16 + radius * 0.08);
   const cx = width / 2;
   const cy = height / 2;
 
@@ -416,8 +417,8 @@ function composeScopeDisplay(width: number, height: number): void {
     displayCtx.restore();
   }
 
-  paintOuterMatte(width, height, radius, cx, cy, 0.8 + settings.distance * 0.1);
-  paintCircularRim(radius, cx, cy, 3 + settings.distance * 10, 0.34 + settings.distance * 0.14);
+  paintOuterMatte(width, height, radius, cx, cy, 0.8 + distanceRatio * 0.12);
+  paintCircularRim(radius, cx, cy, 3 + distanceRatio * 10, 0.34 + distanceRatio * 0.18);
 
   displayCtx.save();
   displayCtx.beginPath();
@@ -429,8 +430,9 @@ function composeScopeDisplay(width: number, height: number): void {
 
 function composeMirrorDisplay(width: number, height: number): void {
   const radius = Math.min(width, height) * settings.lensSize * 0.5;
-  const blurAmount = settings.distance * 9;
-  const sourceScale = 1 + settings.distance * 0.24;
+  const distanceRatio = clamp(settings.distance / 0.8, 0, 1);
+  const blurAmount = Math.pow(distanceRatio, 1.6) * (12 + radius * 0.06);
+  const sourceScale = 1 + distanceRatio * 0.34;
   const cx = width / 2;
   const cy = height / 2;
   const sectorAngle = (Math.PI * 2) / MIRROR_SECTORS;
@@ -467,7 +469,8 @@ function composeMirrorDisplay(width: number, height: number): void {
     displayCtx.scale(sourceScale, sourceScale);
 
     if (blurAmount > 0.05) {
-      displayCtx.filter = `blur(${blurAmount}px) saturate(${1.02 + settings.distance * 0.24})`;
+      displayCtx.filter =
+        `blur(${blurAmount}px) saturate(${1.02 - distanceRatio * 0.14}) brightness(${1 - distanceRatio * 0.08})`;
     }
 
     displayCtx.drawImage(
@@ -482,9 +485,9 @@ function composeMirrorDisplay(width: number, height: number): void {
 
   displayCtx.restore();
 
-  paintOuterMatte(width, height, radius, cx, cy, 0.86 + settings.distance * 0.08);
+  paintOuterMatte(width, height, radius, cx, cy, 0.86 + distanceRatio * 0.1);
   paintMirrorSeams(radius, cx, cy, baseAngle, sectorAngle);
-  paintCircularRim(radius, cx, cy, 5 + settings.distance * 10, 0.42 + settings.distance * 0.18);
+  paintCircularRim(radius, cx, cy, 5 + distanceRatio * 10, 0.42 + distanceRatio * 0.2);
 
   displayCtx.save();
   displayCtx.beginPath();
