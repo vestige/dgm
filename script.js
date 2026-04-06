@@ -29,7 +29,7 @@ const displayCtx = getContext(displayCanvas);
 const sceneCanvas = document.createElement("canvas");
 const sceneCtx = getContext(sceneCanvas);
 const settings = {
-    preset: "petals",
+    preset: "softKaleido",
     palette: "sunrise",
     speed: 1,
     density: 16,
@@ -40,6 +40,8 @@ const settings = {
     distance: 0.14,
 };
 const viewOffset = {
+    homeX: 0,
+    homeY: 0,
     currentX: 0,
     currentY: 0,
     targetX: 0,
@@ -88,6 +90,18 @@ const presets = {
         size: 0.8,
         trails: 0.08,
         draw: drawConfetti,
+    },
+    softKaleido: {
+        label: "やわらか万華鏡",
+        palette: "sunrise",
+        speed: 0.8,
+        density: 18,
+        size: 1.1,
+        trails: 0.16,
+        viewMode: "mirrorSoft",
+        lensSize: 0.78,
+        distance: 0.22,
+        draw: drawPetals,
     },
 };
 const controls = {
@@ -163,6 +177,9 @@ function applyPreset(name) {
     settings.density = preset.density;
     settings.size = preset.size;
     settings.trails = preset.trails;
+    settings.viewMode = preset.viewMode ?? settings.viewMode;
+    settings.lensSize = preset.lensSize ?? settings.lensSize;
+    settings.distance = preset.distance ?? settings.distance;
     syncControls();
 }
 function syncControls() {
@@ -196,7 +213,7 @@ function handleKeydown(event) {
         event.preventDefault();
         return;
     }
-    if (key.toLowerCase() === "c") {
+    if (key.toLowerCase() === "r" || key.toLowerCase() === "c") {
         resetViewOffset();
         return;
     }
@@ -290,10 +307,10 @@ function updateOffsetReadout() {
     offsetReadout.textContent = `x ${Math.round(viewOffset.targetX)}, y ${Math.round(viewOffset.targetY)}`;
 }
 function resetViewOffset() {
-    viewOffset.currentX = 0;
-    viewOffset.currentY = 0;
-    viewOffset.targetX = 0;
-    viewOffset.targetY = 0;
+    viewOffset.currentX = viewOffset.homeX;
+    viewOffset.currentY = viewOffset.homeY;
+    viewOffset.targetX = viewOffset.homeX;
+    viewOffset.targetY = viewOffset.homeY;
     updateOffsetReadout();
 }
 function composeDisplay(width, height, seconds) {

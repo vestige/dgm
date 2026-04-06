@@ -1,5 +1,5 @@
 type PaletteName = "sunrise" | "ocean" | "neon" | "candy";
-type PatternName = "petals" | "orbit" | "lattice" | "confetti";
+type PatternName = "petals" | "orbit" | "lattice" | "confetti" | "softKaleido";
 type ViewMode = "full" | "scope" | "mirror" | "mirrorSoft";
 
 interface Settings {
@@ -32,10 +32,15 @@ interface Preset {
   density: number;
   size: number;
   trails: number;
+  viewMode?: ViewMode;
+  lensSize?: number;
+  distance?: number;
   draw: (state: PatternDrawState) => void;
 }
 
 interface ViewOffsetState {
+  homeX: number;
+  homeY: number;
   currentX: number;
   currentY: number;
   targetX: number;
@@ -77,7 +82,7 @@ const sceneCanvas = document.createElement("canvas");
 const sceneCtx = getContext(sceneCanvas);
 
 const settings: Settings = {
-  preset: "petals",
+  preset: "softKaleido",
   palette: "sunrise",
   speed: 1,
   density: 16,
@@ -89,6 +94,8 @@ const settings: Settings = {
 };
 
 const viewOffset: ViewOffsetState = {
+  homeX: 0,
+  homeY: 0,
   currentX: 0,
   currentY: 0,
   targetX: 0,
@@ -140,6 +147,18 @@ const presets: Record<PatternName, Preset> = {
     size: 0.8,
     trails: 0.08,
     draw: drawConfetti,
+  },
+  softKaleido: {
+    label: "やわらか万華鏡",
+    palette: "sunrise",
+    speed: 0.8,
+    density: 18,
+    size: 1.1,
+    trails: 0.16,
+    viewMode: "mirrorSoft",
+    lensSize: 0.78,
+    distance: 0.22,
+    draw: drawPetals,
   },
 };
 
@@ -225,6 +244,9 @@ function applyPreset(name: PatternName): void {
   settings.density = preset.density;
   settings.size = preset.size;
   settings.trails = preset.trails;
+  settings.viewMode = preset.viewMode ?? settings.viewMode;
+  settings.lensSize = preset.lensSize ?? settings.lensSize;
+  settings.distance = preset.distance ?? settings.distance;
   syncControls();
 }
 
@@ -265,7 +287,7 @@ function handleKeydown(event: KeyboardEvent): void {
     return;
   }
 
-  if (key.toLowerCase() === "c") {
+  if (key.toLowerCase() === "r" || key.toLowerCase() === "c") {
     resetViewOffset();
     return;
   }
@@ -375,10 +397,10 @@ function updateOffsetReadout(): void {
 }
 
 function resetViewOffset(): void {
-  viewOffset.currentX = 0;
-  viewOffset.currentY = 0;
-  viewOffset.targetX = 0;
-  viewOffset.targetY = 0;
+  viewOffset.currentX = viewOffset.homeX;
+  viewOffset.currentY = viewOffset.homeY;
+  viewOffset.targetX = viewOffset.homeX;
+  viewOffset.targetY = viewOffset.homeY;
   updateOffsetReadout();
 }
 
