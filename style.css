@@ -103,7 +103,10 @@ canvas {
 
 .controls select,
 .controls input,
-.buttons button {
+.buttons button,
+.lab button,
+.lab input,
+.lab textarea {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
@@ -113,6 +116,11 @@ canvas {
 
 .controls select,
 .controls input {
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.lab input {
   min-height: 38px;
   padding: 0 12px;
 }
@@ -135,11 +143,25 @@ canvas {
   font: inherit;
 }
 
-.buttons button:hover {
+.buttons button:hover,
+.lab button:hover {
   background: rgba(255, 255, 255, 0.14);
 }
 
+.buttons button:disabled,
+.lab button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .tips {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.lab {
   margin-top: 14px;
   padding: 12px;
   border-radius: 16px;
@@ -151,11 +173,45 @@ canvas {
   font-size: 1rem;
 }
 
+.lab h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
 .tips ol {
   margin: 0;
   padding-left: 1.2rem;
   color: var(--text-sub);
   line-height: 1.65;
+}
+
+.lab__lead {
+  margin: 0 0 10px;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+
+.lab label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.92rem;
+}
+
+.lab textarea {
+  min-height: 188px;
+  margin-top: 10px;
+  padding: 12px;
+  resize: vertical;
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.lab button {
+  min-height: 40px;
+  margin-top: 10px;
+  cursor: pointer;
+  font: inherit;
 }
 
 .tips code,
@@ -173,7 +229,7 @@ canvas {
 }
 
 .status {
-  margin-top: 12px;
+  margin-top: 8px;
   color: var(--text-sub);
   font-size: 0.88rem;
 }

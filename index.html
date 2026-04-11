@@ -84,6 +84,24 @@
         </ol>
       </section>
 
+      <section class="lab">
+        <h2>コード化ラボ</h2>
+        <p class="lab__lead">
+          1. パラメータを調整 2. 名前をつける 3. <code>コードを作る</code> を押す、の順で進めます。
+        </p>
+
+        <label>
+          新しいプリセット名
+          <input id="preset-name" type="text" value="myPreset" />
+        </label>
+
+        <button id="generate-preset" type="button">コードを作る</button>
+        <textarea id="preset-code" readonly spellcheck="false"></textarea>
+
+        <button id="copy-preset" type="button">コードをコピー</button>
+        <p class="status" id="copy-status" aria-live="polite"></p>
+      </section>
+
       <p class="hint">
         視野オフセット: <span id="offset-readout">x 0, y 0</span>
       </p>

@@ -22,6 +22,7 @@ https://vestige.github.io/dgm/
 - 丸い「のぞき窓」表示に切り替え
 - 距離スライダーでボケ感を調整
 - 十字キーで視野を動かして見え方をずらす
+- 今の設定からボタンで `presets` 用コードを作ってコピーできる
 
 左上のパネルで模様を変えて、画面に万華鏡キットを当ててのぞきます。
 
@@ -45,6 +46,7 @@ https://vestige.github.io/dgm/
 - `src/main.ts` の `settings.speed` を変えてみる
 - `palettes` の色コードを好きな色に変える
 - `drawPetals()` をまねして新しい `draw...()` 関数を作る
+- 画面の「コード化ラボ」でパラメータを調整してから `コードを作る` を押し、`presets` に貼ってみる
 
 ## GitHub Pages
 

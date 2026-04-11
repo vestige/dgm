@@ -162,6 +162,14 @@ const presets: Record<PatternName, Preset> = {
   },
 };
 
+const presetDrawNames: Record<PatternName, string> = {
+  petals: "drawPetals",
+  orbit: "drawOrbit",
+  lattice: "drawLattice",
+  confetti: "drawConfetti",
+  softKaleido: "drawPetals",
+};
+
 const controls = {
   preset: getById<HTMLSelectElement>("preset"),
   palette: getById<HTMLSelectElement>("palette"),
@@ -178,6 +186,11 @@ const panel = getPanelElement();
 const randomizeButton = getById<HTMLButtonElement>("randomize");
 const togglePanelButton = getById<HTMLButtonElement>("toggle-panel");
 const offsetReadout = getById<HTMLSpanElement>("offset-readout");
+const presetNameInput = getById<HTMLInputElement>("preset-name");
+const generatePresetButton = getById<HTMLButtonElement>("generate-preset");
+const presetCodeOutput = getById<HTMLTextAreaElement>("preset-code");
+const copyPresetButton = getById<HTMLButtonElement>("copy-preset");
+const copyStatus = getById<HTMLParagraphElement>("copy-status");
 
 let startTime = 0;
 let lastFrameTime = 0;
@@ -186,6 +199,7 @@ setupOptions();
 applyPreset(settings.preset);
 resizeCanvases();
 updateOffsetReadout();
+showPresetCodePlaceholder();
 
 window.addEventListener("resize", resizeCanvases);
 window.addEventListener("keydown", handleKeydown);
@@ -193,33 +207,50 @@ window.addEventListener("keyup", handleKeyup);
 window.addEventListener("blur", clearMovementKeys);
 randomizeButton.addEventListener("click", randomizeSettings);
 togglePanelButton.addEventListener("click", togglePanel);
+generatePresetButton.addEventListener("click", () => {
+  updatePresetCode();
+});
+copyPresetButton.addEventListener("click", () => {
+  void copyPresetCode();
+});
+presetNameInput.addEventListener("input", () => {
+  markPresetCodeStale();
+});
 
 controls.preset.addEventListener("input", () => {
   applyPreset(controls.preset.value as PatternName);
 });
 controls.palette.addEventListener("input", () => {
   settings.palette = controls.palette.value as PaletteName;
+  markPresetCodeStale();
 });
 controls.speed.addEventListener("input", () => {
   settings.speed = Number(controls.speed.value);
+  markPresetCodeStale();
 });
 controls.density.addEventListener("input", () => {
   settings.density = Number(controls.density.value);
+  markPresetCodeStale();
 });
 controls.size.addEventListener("input", () => {
   settings.size = Number(controls.size.value);
+  markPresetCodeStale();
 });
 controls.trails.addEventListener("input", () => {
   settings.trails = Number(controls.trails.value);
+  markPresetCodeStale();
 });
 controls.viewMode.addEventListener("input", () => {
   settings.viewMode = controls.viewMode.value as ViewMode;
+  markPresetCodeStale();
 });
 controls.lensSize.addEventListener("input", () => {
   settings.lensSize = Number(controls.lensSize.value);
+  markPresetCodeStale();
 });
 controls.distance.addEventListener("input", () => {
   settings.distance = Number(controls.distance.value);
+  markPresetCodeStale();
 });
 
 startTime = performance.now();
@@ -260,6 +291,7 @@ function syncControls(): void {
   controls.viewMode.value = settings.viewMode;
   controls.lensSize.value = String(settings.lensSize);
   controls.distance.value = String(settings.distance);
+  markPresetCodeStale();
 }
 
 function resizeCanvases(): void {
@@ -337,6 +369,80 @@ function randomizeSettings(): void {
   settings.lensSize = randomBetween(0.52, 0.86, 2);
   settings.distance = randomBetween(0.02, 0.48, 2);
   syncControls();
+}
+
+function updatePresetCode(): void {
+  const presetName = getPresetTemplateName();
+  const presetKey = formatPresetKey(presetName);
+  const drawName = presetDrawNames[settings.preset];
+
+  presetCodeOutput.value = `${presetKey}: {
+  label: ${JSON.stringify(presetName)},
+  palette: ${JSON.stringify(settings.palette)},
+  speed: ${formatCodeNumber(settings.speed)},
+  density: ${formatCodeNumber(settings.density)},
+  size: ${formatCodeNumber(settings.size)},
+  trails: ${formatCodeNumber(settings.trails)},
+  viewMode: ${JSON.stringify(settings.viewMode)},
+  lensSize: ${formatCodeNumber(settings.lensSize)},
+  distance: ${formatCodeNumber(settings.distance)},
+  draw: ${drawName},
+},`;
+
+  copyPresetButton.disabled = false;
+  copyStatus.textContent = "今の設定からコードを作りました。copy して presets に貼れます。";
+}
+
+async function copyPresetCode(): Promise<void> {
+  const text = presetCodeOutput.value;
+
+  if (copyPresetButton.disabled) {
+    copyStatus.textContent = "先に「コードを作る」を押して、今の設定をコードにしてください。";
+    return;
+  }
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      presetCodeOutput.focus();
+      presetCodeOutput.select();
+      document.execCommand("copy");
+      presetCodeOutput.setSelectionRange(0, 0);
+    }
+
+    copyStatus.textContent = "コピーしました。src/main.ts の presets に貼れます。";
+  } catch {
+    copyStatus.textContent = "コピーできなかったので、下のコードをそのまま選んで使ってください。";
+  }
+}
+
+function getPresetTemplateName(): string {
+  const trimmed = presetNameInput.value.trim();
+  return trimmed || "myPreset";
+}
+
+function showPresetCodePlaceholder(): void {
+  presetCodeOutput.value = [
+    "// 1. パラメータを調整",
+    '// 2. 名前を決める',
+    '// 3. 「コードを作る」を押す',
+  ].join("\n");
+  copyPresetButton.disabled = true;
+  copyStatus.textContent = "パラメータを変えたら「コードを作る」で取り出せます。";
+}
+
+function markPresetCodeStale(): void {
+  copyPresetButton.disabled = true;
+  copyStatus.textContent = "設定を変えました。反映するには「コードを作る」を押してください。";
+}
+
+function formatPresetKey(name: string): string {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+}
+
+function formatCodeNumber(value: number): string {
+  return Number(value.toFixed(2)).toString();
 }
 
 function render(now: number): void {
