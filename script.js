@@ -127,6 +127,7 @@ const randomizeButton = getById("randomize");
 const togglePanelButton = getById("toggle-panel");
 const offsetReadout = getById("offset-readout");
 const presetNameInput = getById("preset-name");
+const remixPresetButton = getById("remix-preset");
 const generatePresetButton = getById("generate-preset");
 const presetCodeOutput = getById("preset-code");
 const copyPresetButton = getById("copy-preset");
@@ -144,6 +145,9 @@ window.addEventListener("keyup", handleKeyup);
 window.addEventListener("blur", clearMovementKeys);
 randomizeButton.addEventListener("click", randomizeSettings);
 togglePanelButton.addEventListener("click", togglePanel);
+remixPresetButton.addEventListener("click", () => {
+    remixPresetCode();
+});
 generatePresetButton.addEventListener("click", () => {
     updatePresetCode();
 });
@@ -330,6 +334,11 @@ async function copyPresetCode() {
         copyStatus.textContent = "コピーできなかったので、下のコードをそのまま選んで使ってください。";
     }
 }
+function remixPresetCode() {
+    presetNameInput.value = buildRemixName(settings.preset);
+    updatePresetCode();
+    copyStatus.textContent = "Remix名を入れてコードを作りました。必要なら名前を直してもう一度作れます。";
+}
 function getPresetTemplateName() {
     const trimmed = presetNameInput.value.trim();
     return trimmed || "myPreset";
@@ -337,7 +346,7 @@ function getPresetTemplateName() {
 function showPresetCodePlaceholder() {
     presetCodeOutput.value = [
         "// 1. パラメータを調整",
-        '// 2. 名前を決める',
+        '// 2. 名前を決めるか「Remix名を作る」を押す',
         '// 3. 「コードを作る」を押す',
     ].join("\n");
     copyPresetButton.disabled = true;
@@ -349,6 +358,17 @@ function markPresetCodeStale() {
 }
 function formatPresetKey(name) {
     return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+}
+function buildRemixName(basePreset) {
+    const baseName = `${basePreset}Remix`;
+    const usedKeys = new Set(Object.keys(presets));
+    let candidate = baseName;
+    let index = 2;
+    while (usedKeys.has(candidate)) {
+        candidate = `${baseName}${index}`;
+        index += 1;
+    }
+    return candidate;
 }
 function formatCodeNumber(value) {
     return Number(value.toFixed(2)).toString();

@@ -187,6 +187,7 @@ const randomizeButton = getById<HTMLButtonElement>("randomize");
 const togglePanelButton = getById<HTMLButtonElement>("toggle-panel");
 const offsetReadout = getById<HTMLSpanElement>("offset-readout");
 const presetNameInput = getById<HTMLInputElement>("preset-name");
+const remixPresetButton = getById<HTMLButtonElement>("remix-preset");
 const generatePresetButton = getById<HTMLButtonElement>("generate-preset");
 const presetCodeOutput = getById<HTMLTextAreaElement>("preset-code");
 const copyPresetButton = getById<HTMLButtonElement>("copy-preset");
@@ -207,6 +208,9 @@ window.addEventListener("keyup", handleKeyup);
 window.addEventListener("blur", clearMovementKeys);
 randomizeButton.addEventListener("click", randomizeSettings);
 togglePanelButton.addEventListener("click", togglePanel);
+remixPresetButton.addEventListener("click", () => {
+  remixPresetCode();
+});
 generatePresetButton.addEventListener("click", () => {
   updatePresetCode();
 });
@@ -417,6 +421,12 @@ async function copyPresetCode(): Promise<void> {
   }
 }
 
+function remixPresetCode(): void {
+  presetNameInput.value = buildRemixName(settings.preset);
+  updatePresetCode();
+  copyStatus.textContent = "Remix名を入れてコードを作りました。必要なら名前を直してもう一度作れます。";
+}
+
 function getPresetTemplateName(): string {
   const trimmed = presetNameInput.value.trim();
   return trimmed || "myPreset";
@@ -425,7 +435,7 @@ function getPresetTemplateName(): string {
 function showPresetCodePlaceholder(): void {
   presetCodeOutput.value = [
     "// 1. パラメータを調整",
-    '// 2. 名前を決める',
+    '// 2. 名前を決めるか「Remix名を作る」を押す',
     '// 3. 「コードを作る」を押す',
   ].join("\n");
   copyPresetButton.disabled = true;
@@ -439,6 +449,20 @@ function markPresetCodeStale(): void {
 
 function formatPresetKey(name: string): string {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+}
+
+function buildRemixName(basePreset: PatternName): string {
+  const baseName = `${basePreset}Remix`;
+  const usedKeys = new Set(Object.keys(presets));
+  let candidate = baseName;
+  let index = 2;
+
+  while (usedKeys.has(candidate)) {
+    candidate = `${baseName}${index}`;
+    index += 1;
+  }
+
+  return candidate;
 }
 
 function formatCodeNumber(value: number): string {

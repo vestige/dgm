@@ -214,6 +214,18 @@ canvas {
   font: inherit;
 }
 
+.lab__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lab__actions .lab button,
+.lab__actions button {
+  margin-top: 0;
+}
+
 .tips code,
 .hint kbd {
   padding: 0.14em 0.4em;
@@ -264,6 +276,10 @@ canvas {
   }
 
   .buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .lab__actions {
     grid-template-columns: 1fr;
   }
 }
